@@ -61,22 +61,18 @@ let arrowLayer = null;
 ---------------------------------------------------------- */
 async function fetchMetar() {
   const url = PROXY + encodeURIComponent(
-  `https://avwx.rest/api/metar/EBLG?token=${AVWX_API_KEY}&format=json`
-);
-
+    `https://avwx.rest/api/metar/EBLG?token=${AVWX_API_KEY}&format=json`
+  );
   const r = await fetch(url);
   return r.json();
 }
-async function refresh() {
-  let metar = null;
-  try {
-    metar = await fetchMetar();
-    updateMetarUI(metar);
-  } catch (e) {
-    document.getElementById("meteo-summary").textContent = "METAR indisponible";
-  }
 
 function updateMetarUI(m) {
+  if (!m || !m.wind_direction) {
+    document.getElementById("meteo-summary").textContent = "METAR indisponible";
+    return;
+  }
+
   document.getElementById("meteo-summary").textContent =
     `Vent ${m.wind_direction.value}° / ${m.wind_speed.value} kt – T° ${m.temperature.value}°C`;
 
@@ -209,12 +205,20 @@ function computeImpacted(heading) {
    MAIN
 ---------------------------------------------------------- */
 async function refresh() {
-  const metar = await fetchMetar();
-  updateMetarUI(metar);
 
+  /* METAR */
+  try {
+    const metar = await fetchMetar();
+    updateMetarUI(metar);
+  } catch (e) {
+    document.getElementById("meteo-summary").textContent = "METAR indisponible";
+  }
+
+  /* FIDS */
   const fids = await fetchFIDS();
   updateFlightsUI(fids);
 
+  /* RUNWAY */
   const rw = extractRunway(fids);
   if (!rw) {
     document.getElementById("runway-info").textContent = "Piste non déterminée.";
@@ -224,6 +228,7 @@ async function refresh() {
   document.getElementById("runway-info").textContent =
     `Piste ${rw.name} (cap ${rw.heading}°)`;
 
+  /* COULOIR + SONOMÈTRES */
   const impacted = computeImpacted(rw.heading);
 
   document.getElementById("sonos-impacted").innerHTML =
